@@ -10,6 +10,12 @@
 - 텔레그램 명령 처리
 - 텔레그램 메시지 전송
 
+## 현재 확인된 상태
+- `ai` conda 환경에서 의존성 설치 완료
+- `python -m pytest -q` 기준 테스트 2건 통과
+- 샘플 리포트의 텔레그램 전송 성공 확인
+- 회사 환경 특성상 polling 모드 또는 외부 네트워크 호출은 제약이 있을 수 있음
+
 ## 문서
 - [도메인 정의](D:\_20. source\telebot\docs\01_domain.md)
 - [PRD](D:\_20. source\telebot\docs\02_prd_check_bottom_bot.md)
@@ -21,15 +27,16 @@
 - [텔레그램 봇 생성 및 배포 절차](D:\_20. source\telebot\docs\11_telegram_bot_setup_and_deploy.md)
 
 ## 빠른 시작
-### 1. 가상환경 생성
+### 1. 권장 실행 환경
+현재 기준 권장 환경은 conda의 `ai` 환경이다.
+
 ```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
+conda run -n ai python --version
 ```
 
 ### 2. 의존성 설치
 ```powershell
-python -m pip install -r requirements.txt
+conda run -n ai python -m pip install -r requirements.txt
 ```
 
 ### 3. `.env` 설정
@@ -43,7 +50,13 @@ TELEGRAM_CHAT_ID=채팅_ID
 
 ### 4. 실행
 ```powershell
-python main.py
+conda run -n ai python main.py
+```
+
+`conda run`이 회사 환경에서 불안정하면 아래처럼 환경의 Python 경로를 직접 호출하는 방식이 더 안정적일 수 있다.
+
+```powershell
+D:\miniconda3\envs\ai\python.exe main.py
 ```
 
 ## 텔레그램 명령
@@ -92,12 +105,17 @@ main.py
 
 ## 테스트
 ```powershell
-python -m pytest -q
+conda run -n ai python -m pytest -q
 ```
 
-현재 환경에 `pytest`가 없으면 먼저 `requirements.txt` 설치가 필요하다.
+`conda run`이 불안정하면 아래처럼 직접 실행할 수 있다.
+
+```powershell
+D:\miniconda3\envs\ai\python.exe -m pytest -q
+```
 
 ## 주의사항
 - 이 프로젝트 결과는 투자 판단 보조용이다.
 - 투자 자문처럼 단정적으로 사용하면 안 된다.
 - 문서 기준으로 로직과 출력 형식을 유지해야 한다.
+- 회사 네트워크 정책 때문에 텔레그램 polling 또는 외부 API 호출이 제한될 수 있다.
