@@ -1,0 +1,18 @@
+SAMPLE_PAYLOAD = {
+    "date": "2026-03-23",
+    "kospi_close": 2612.34,
+    "kosdaq_close": 845.22,
+    "kospi_drawdown_pct": -19.2,
+    "kosdaq_drawdown_pct": -22.1,
+    "disparity_20": 91.3,
+    "disparity_60": 93.0,
+    "vkospi": 47.0,
+    "ma50_support": True,
+    "ma60_support": False,
+    "bottom_pattern": "W_second_bottom",
+    "wti": 84.2,
+    "dubai": 81.7,
+    "us_gdp_yoy": 3.2,
+    "us_jobs": "stable",
+    "semiconductor_earnings_view": "positive",
+}
