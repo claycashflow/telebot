@@ -14,6 +14,11 @@
 ## 3. 권장 디렉토리
 ```text
 telebot/
+  .claude/
+    CLAUDE.md
+    commands/
+      check-market.md
+      run-bot.md
   app/
     application/
       service.py
@@ -68,6 +73,8 @@ telebot/
 - `migrations/`
 
 이 항목들은 운영 확장 단계에서 필요할 때만 추가한다.
+
+단, Claude Code 호환을 위해 `.claude/` 디렉토리는 둔다.
 
 ## 6. 초기 실행 흐름
 - `main.py`가 설정을 로드한다.
