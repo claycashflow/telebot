@@ -8,7 +8,7 @@ from app.config.settings import load_settings
 def main() -> None:
     settings = load_settings()
     if settings.telegram_bot_token:
-        application = build_bot_application(settings.telegram_bot_token)
+        application = build_bot_application(settings)
         print("Telegram bot polling started.")
         application.run_polling()
         return

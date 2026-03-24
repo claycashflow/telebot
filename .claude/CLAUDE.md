@@ -18,6 +18,7 @@
 - `docs/09_milestone_plan.md`
 - `docs/10_mvp_project_structure.md`
 - `docs/11_telegram_bot_setup_and_deploy.md`
+- `docs/12_output_format.md`
 
 ## 작업 원칙
 - 규칙 기반 판정 결과를 최우선으로 사용한다.

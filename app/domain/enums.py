@@ -8,11 +8,6 @@ class BottomPattern(str, Enum):
     PANIC_CAPITULATION = "Panic_capitulation"
 
 
-class EarningsView(str, Enum):
-    POSITIVE = "positive"
-    NEUTRAL = "neutral"
-    NEGATIVE = "negative"
-
 
 class BottomStatus(str, Enum):
     NEED_MORE_ADJUSTMENT = "추가 조정 필요"

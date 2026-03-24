@@ -1,4 +1,4 @@
-from app.domain.enums import BottomPattern, BottomStatus, EarningsView
+from app.domain.enums import BottomPattern, BottomStatus
 from app.domain.models import MarketInput
 
 
@@ -23,6 +23,9 @@ def evaluate_market(data: MarketInput) -> dict:
     if data.vkospi >= 40:
         score += 2
         reasons.append("변동성이 높아 공포 확대로 해석할 수 있다.")
+    if data.vkospi >= 70:
+        score += 1
+        reasons.append("V-KOSPI가 극단 공포 구간(70+)으로 역사적 변곡점 가능성이 높아진다.")
 
     if data.ma50_support or data.ma60_support:
         score += 1
@@ -42,10 +45,6 @@ def evaluate_market(data: MarketInput) -> dict:
     if data.us_gdp_yoy >= 4.0:
         score -= 2
         reasons.append("미국 GDP가 높아 금리 인하 기대 후퇴 우려가 있다.")
-
-    if data.semiconductor_earnings_view is EarningsView.POSITIVE:
-        score += 1
-        reasons.append("반도체 이익 전망이 완충 요인이다.")
 
     if score >= 6:
         status = BottomStatus.TRUE_BOTTOM_CONFIRMED

@@ -6,10 +6,13 @@ def test_run_market_check_generates_report():
         "date": "2026-03-23",
         "kospi_close": 2612.34,
         "kosdaq_close": 845.22,
+        "kospi_change_pt": -23.5,
+        "kospi_change_pct": -0.89,
         "kospi_drawdown_pct": -19.2,
         "kosdaq_drawdown_pct": -22.1,
         "disparity_20": 91.3,
         "disparity_60": 93.0,
+        "below_ma20_ratio": 68.4,
         "vkospi": 47.0,
         "ma50_support": True,
         "ma60_support": False,
@@ -18,8 +21,7 @@ def test_run_market_check_generates_report():
         "dubai": 81.7,
         "us_gdp_yoy": 3.2,
         "us_jobs": "stable",
-        "semiconductor_earnings_view": "positive",
     }
     _, judgement, report = run_market_check(payload)
     assert judgement["status"]
-    assert "현 시점 저점 판독 결과" in report
+    assert "저점 판독 결과" in report
