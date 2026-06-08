@@ -5,12 +5,11 @@ from app.domain.models import MarketInput
 def evaluate_market(data: MarketInput) -> dict:
     score = 0
     reasons: list[str] = []
-    worst_drawdown = min(data.kospi_drawdown_pct, data.kosdaq_drawdown_pct)
 
-    if -23 <= worst_drawdown <= -18:
+    if -23 <= data.kospi_drawdown_pct <= -18:
         score += 3
         reasons.append("하락률이 기술적 저점 후보 구간이다.")
-    elif worst_drawdown < -23:
+    elif data.kospi_drawdown_pct < -23:
         reasons.append("하락률이 깊어 침체 가능성도 함께 점검해야 한다.")
 
     if data.disparity_20 <= 92 or data.disparity_60 <= 92:
@@ -51,6 +50,13 @@ def evaluate_market(data: MarketInput) -> dict:
     if data.us_gdp_yoy >= 4.0:
         score -= 2
         reasons.append("미국 GDP가 높아 금리 인하 기대 후퇴 우려가 있다.")
+
+    if data.us_10y_yield is not None and data.us_10y_yield >= 4.5:
+        score -= 1
+        reasons.append("미국 10년물 금리가 4.5% 이상으로 밸류에이션 부담이 있다.")
+    if data.us_10y_yield is not None and data.us_10y_yield >= 5.0:
+        score -= 1
+        reasons.append("미국 10년물 금리가 5% 이상으로 금리 부담이 강하다.")
 
     if score >= 6:
         status = BottomStatus.TRUE_BOTTOM_CONFIRMED

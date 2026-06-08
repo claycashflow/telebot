@@ -9,15 +9,15 @@ def build_report(data: MarketInput, judgement: dict) -> str:
     change_arrow = _format_change_arrow(data.kospi_change_pt)
     peak = data.kospi_close / (1 + data.kospi_drawdown_pct / 100)
     ma20 = data.kospi_close * 100 / data.disparity_20
-    worst_drawdown = min(data.kospi_drawdown_pct, data.kosdaq_drawdown_pct)
 
-    mdd_label    = _mdd_label(worst_drawdown)
+    mdd_label    = _mdd_label(data.kospi_drawdown_pct)
     disp_label   = _disparity_label(data.disparity_20)
     vkospi_label = _vkospi_label(data.vkospi)
     below_label  = _below_ma20_label(data.below_ma20_ratio)
     wti_label    = _oil_label(data.wti)
     dubai_label  = _oil_label(data.dubai)
     gdp_label    = _gdp_label(data.us_gdp_yoy)
+    us_10y_label = _us_10y_label(data.us_10y_yield)
     oil_trend    = _format_oil_trend(data)
     source_notes = _format_source_notes(data)
     narrative    = _build_narrative(data, judgement)
@@ -33,8 +33,6 @@ def build_report(data: MarketInput, judgement: dict) -> str:
         f"  - 52주 최고점: {peak:,.2f}\n"
         f"  - 현재: {data.kospi_close:,.2f}\n"
         f"  - KOSPI 하락률: {data.kospi_drawdown_pct:.1f}%  [기준: -18%~-23% → 저점 후보 / -23% 초과 → 침체 점검]\n"
-        f"  - KOSDAQ 하락률: {data.kosdaq_drawdown_pct:.1f}%\n"
-        f"  - 판정 기준 하락률: {worst_drawdown:.1f}%  [KOSPI/KOSDAQ 중 더 깊은 하락률]\n"
         f"  - 평가: {mdd_label}\n"
         f"\n"
         f"② 20일 이동평균 이격도\n"
@@ -66,6 +64,7 @@ def build_report(data: MarketInput, judgement: dict) -> str:
         f"  - WTI: {data.wti} ({wti_label})  /  Dubai: {data.dubai} ({dubai_label})  [기준: 80 초과 → 감점 / 100 이상 → 추가 감점]\n"
         f"{oil_trend}"
         f"  - 미국 GDP YoY: {data.us_gdp_yoy}% ({gdp_label})  [기준: 4% 이상 → 금리 인하 기대 후퇴]\n"
+        f"  - 미국 10년물 금리: {_format_optional_pct(data.us_10y_yield)} ({us_10y_label})  [기준: 4.5% 이상 → 부담 / 5.0% 이상 → 강한 부담]\n"
         f"  - 고용 동향: {data.us_jobs}\n"
         f"{source_notes}"
         f"\n"
@@ -90,7 +89,6 @@ def _build_narrative(data: MarketInput, judgement: dict) -> str:
 
     # MDD 해석
     d = data.kospi_drawdown_pct
-    worst_drawdown = min(data.kospi_drawdown_pct, data.kosdaq_drawdown_pct)
     if d > -10:
         lines.append(f"KOSPI 하락률이 {d:.1f}%로 아직 일반 조정 구간이다. 역사적 저점 후보 구간(-18%~-23%)까지 약 {abs(-18 - d):.1f}%p 이상 추가 하락 여지가 있다.")
     elif d > -18:
@@ -99,9 +97,6 @@ def _build_narrative(data: MarketInput, judgement: dict) -> str:
         lines.append(f"KOSPI 하락률이 {d:.1f}%로 역사적 저점 후보 구간(-18%~-23%)에 진입했다. 급등 이후 1년치 하락분을 반영하는 구간으로, 기술적 바닥 형성 가능성이 높아진다.")
     else:
         lines.append(f"KOSPI 하락률이 {d:.1f}%로 일반적인 저점 구간(-23%)을 초과했다. 단순 조정이 아닌 구조적 하락 가능성을 함께 점검해야 한다.")
-
-    if worst_drawdown != d:
-        lines.append(f"규칙 엔진은 KOSPI와 KOSDAQ 중 더 깊은 하락률을 사용한다. 현재 판정 기준 하락률은 {worst_drawdown:.1f}%다.")
 
     # 이격도 해석
     disp = data.disparity_20
@@ -138,6 +133,15 @@ def _build_narrative(data: MarketInput, judgement: dict) -> str:
     if data.oil_5d_change_pct is not None and data.oil_5d_change_pct >= 8:
         lines.append(f"최근 5거래일 유가 변화율이 {data.oil_5d_change_pct:+.1f}%로 급등 구간이다. 공급차질 프리미엄이 붙는 경우 저점 확인을 보수적으로 봐야 한다.")
 
+    # 미국 10년물 금리 해석
+    if data.us_10y_yield is not None:
+        if data.us_10y_yield >= 5.0:
+            lines.append(f"미국 10년물 금리 {data.us_10y_yield:.2f}%는 강한 금리 부담 구간이다. 성장주와 반도체 중심 시장의 밸류에이션 회복을 제약할 수 있다.")
+        elif data.us_10y_yield >= 4.5:
+            lines.append(f"미국 10년물 금리 {data.us_10y_yield:.2f}%는 부담 구간이다. 금리 하락 확인 전까지 저점 판정은 보수적으로 볼 필요가 있다.")
+        elif data.us_10y_yield <= 4.0:
+            lines.append(f"미국 10년물 금리 {data.us_10y_yield:.2f}%는 상대적으로 안정 구간이다. 매크로 금리 부담은 완화된 편으로 해석한다.")
+
     # 계절성 해석
     try:
         month = int(data.date.split("-")[1])
@@ -164,6 +168,8 @@ def _format_oil_trend(data: MarketInput) -> str:
 
 def _format_source_notes(data: MarketInput) -> str:
     notes = []
+    if data.us_10y_source != "manual":
+        notes.append(f"미국 10년물 금리: {data.us_10y_source}")
     if data.oil_data_source != "manual":
         notes.append(f"유가 데이터: {data.oil_data_source}")
     if data.vkospi_source != "manual":
@@ -221,6 +227,24 @@ def _gdp_label(gdp: float) -> str:
     if gdp >= 4.0:
         return "금리 인하 기대 후퇴 우려"
     return "양호"
+
+
+def _us_10y_label(yield_pct: float | None) -> str:
+    if yield_pct is None:
+        return "데이터 없음"
+    if yield_pct >= 5.0:
+        return "강한 금리 부담"
+    if yield_pct >= 4.5:
+        return "금리 부담"
+    if yield_pct <= 4.0:
+        return "안정"
+    return "중립"
+
+
+def _format_optional_pct(value: float | None) -> str:
+    if value is None:
+        return "데이터 없음"
+    return f"{value:.2f}%"
 
 
 def _format_ma_support(data: MarketInput) -> str:

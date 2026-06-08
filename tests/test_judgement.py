@@ -7,11 +7,9 @@ def build_input(**overrides):
     payload = {
         "date": "2026-03-23",
         "kospi_close": 2612.34,
-        "kosdaq_close": 845.22,
         "kospi_change_pt": -23.5,
         "kospi_change_pct": -0.89,
         "kospi_drawdown_pct": -19.2,
-        "kosdaq_drawdown_pct": -22.1,
         "disparity_20": 91.3,
         "disparity_60": 93.0,
         "below_ma20_ratio": 68.4,
@@ -23,6 +21,7 @@ def build_input(**overrides):
         "dubai": 81.7,
         "us_gdp_yoy": 3.2,
         "us_jobs": "stable",
+        "us_10y_yield": 4.2,
     }
     payload.update(overrides)
     return MarketInput(**payload)
@@ -53,7 +52,7 @@ def test_short_term_oil_spike_adds_penalty():
     assert "최근 5거래일 유가 급등으로 물가·금리 부담이 재부각될 수 있다." in result["reasons"]
 
 
-def test_worst_drawdown_uses_kosdaq_when_deeper():
+def test_kosdaq_drawdown_is_not_used_for_judgement():
     result = evaluate_market(
         build_input(
             kospi_drawdown_pct=-16.2,
@@ -65,4 +64,16 @@ def test_worst_drawdown_uses_kosdaq_when_deeper():
             dubai=97.6,
         )
     )
-    assert "하락률이 깊어 침체 가능성도 함께 점검해야 한다." in result["reasons"]
+    assert "하락률이 깊어 침체 가능성도 함께 점검해야 한다." not in result["reasons"]
+
+
+def test_us_10y_yield_adds_penalty():
+    result = evaluate_market(build_input(us_10y_yield=4.5))
+    assert result["score"] == 7
+    assert "미국 10년물 금리가 4.5% 이상으로 밸류에이션 부담이 있다." in result["reasons"]
+
+
+def test_us_10y_yield_above_five_adds_extra_penalty():
+    result = evaluate_market(build_input(us_10y_yield=5.0))
+    assert result["score"] == 6
+    assert "미국 10년물 금리가 5% 이상으로 금리 부담이 강하다." in result["reasons"]

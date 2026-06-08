@@ -5,11 +5,9 @@ from app.domain.models import MarketInput
 REQUIRED_FIELDS = {
     "date",
     "kospi_close",
-    "kosdaq_close",
     "kospi_change_pt",
     "kospi_change_pct",
     "kospi_drawdown_pct",
-    "kosdaq_drawdown_pct",
     "disparity_20",
     "disparity_60",
     "below_ma20_ratio",
@@ -33,8 +31,12 @@ def validate_market_input(payload: dict) -> MarketInput:
     if missing:
         raise ValidationError(f"누락된 필드가 있다: {sorted(missing)}")
 
-    if float(payload["kospi_drawdown_pct"]) > 0 or float(payload["kosdaq_drawdown_pct"]) > 0:
-        raise ValidationError("하락률 값은 0 이하여야 한다.")
+    if float(payload["kospi_drawdown_pct"]) > 0:
+        raise ValidationError("kospi_drawdown_pct 값은 0 이하여야 한다.")
+
+    kosdaq_drawdown_pct = _optional_float(payload, "kosdaq_drawdown_pct")
+    if kosdaq_drawdown_pct is not None and kosdaq_drawdown_pct > 0:
+        raise ValidationError("kosdaq_drawdown_pct 값은 0 이하여야 한다.")
 
     below = float(payload["below_ma20_ratio"])
     if not (0 <= below <= 100):
@@ -45,6 +47,9 @@ def validate_market_input(payload: dict) -> MarketInput:
         raise ValidationError("oil_20d_avg 값은 양수여야 한다.")
 
     oil_5d_change_pct = _optional_float(payload, "oil_5d_change_pct")
+    us_10y_yield = _optional_float(payload, "us_10y_yield")
+    if us_10y_yield is not None and us_10y_yield <= 0:
+        raise ValidationError("us_10y_yield 값은 양수여야 한다.")
 
     try:
         bottom_pattern = BottomPattern(payload["bottom_pattern"])
@@ -55,11 +60,9 @@ def validate_market_input(payload: dict) -> MarketInput:
     return MarketInput(
         date=str(payload["date"]),
         kospi_close=float(payload["kospi_close"]),
-        kosdaq_close=float(payload["kosdaq_close"]),
         kospi_change_pt=float(payload["kospi_change_pt"]),
         kospi_change_pct=float(payload["kospi_change_pct"]),
         kospi_drawdown_pct=float(payload["kospi_drawdown_pct"]),
-        kosdaq_drawdown_pct=float(payload["kosdaq_drawdown_pct"]),
         disparity_20=float(payload["disparity_20"]),
         disparity_60=float(payload["disparity_60"]),
         below_ma20_ratio=float(payload["below_ma20_ratio"]),
@@ -71,6 +74,10 @@ def validate_market_input(payload: dict) -> MarketInput:
         dubai=float(payload["dubai"]),
         us_gdp_yoy=float(payload["us_gdp_yoy"]),
         us_jobs=str(payload["us_jobs"]),
+        kosdaq_close=_optional_float(payload, "kosdaq_close"),
+        kosdaq_drawdown_pct=kosdaq_drawdown_pct,
+        us_10y_yield=us_10y_yield,
+        us_10y_source=str(payload.get("us_10y_source", "manual")),
         oil_20d_avg=oil_20d_avg,
         oil_5d_change_pct=oil_5d_change_pct,
         oil_data_source=str(payload.get("oil_data_source", "manual")),

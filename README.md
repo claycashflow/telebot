@@ -1,6 +1,6 @@
 # 시장 저점 판독 텔레그램 봇
 
-한국 주식시장(KOSPI/KOSDAQ) 장 마감 데이터를 바탕으로 시장 저점 상태를 규칙 기반으로 판독하고, 한국어 리포트를 텔레그램으로 전송하는 MVP 프로젝트다.
+한국 주식시장(KOSPI) 장 마감 데이터를 바탕으로 시장 저점 상태를 규칙 기반으로 판독하고, 한국어 리포트를 텔레그램으로 전송하는 MVP 프로젝트다.
 
 ## 현재 범위
 - 수동 입력 기반 실행
@@ -74,11 +74,9 @@ D:\miniconda3\envs\ai\python.exe main.py
 {
   "date": "2026-03-23",
   "kospi_close": 2612.34,
-  "kosdaq_close": 845.22,
   "kospi_change_pt": -23.5,
   "kospi_change_pct": -0.89,
   "kospi_drawdown_pct": -19.2,
-  "kosdaq_drawdown_pct": -22.1,
   "disparity_20": 91.3,
   "disparity_60": 93.0,
   "below_ma20_ratio": 68.4,
@@ -91,7 +89,8 @@ D:\miniconda3\envs\ai\python.exe main.py
   "oil_20d_avg": 86.4,
   "oil_5d_change_pct": 2.1,
   "us_gdp_yoy": 3.2,
-  "us_jobs": "stable"
+  "us_jobs": "stable",
+  "us_10y_yield": 4.2
 }
 ```
 

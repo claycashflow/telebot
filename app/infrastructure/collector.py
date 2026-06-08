@@ -2,9 +2,9 @@
 장 마감 데이터 자동 수집 모듈.
 
 백엔드 구성:
-- yfinance         : KOSPI(^KS11), KOSDAQ(^KQ11), WTI(CL=F), 브렌트유(BZ=F, Dubai 대체 지표)
+- yfinance         : KOSPI(^KS11), WTI(CL=F), 브렌트유(BZ=F, Dubai 대체 지표), 미국 10년물(^TNX)
 - FinanceDataReader: KOSPI 시총 상위 50종목 개별 시세 → below_ma20_ratio 계산
-- fredapi          : 미국 GDP YoY, 고용 동향 (FRED_API_KEY 설정 시)
+- fredapi          : 미국 GDP YoY, 고용 동향, 미국 10년물 금리(DGS10, FRED_API_KEY 설정 시)
 
 KRX 자체 API(pykrx, fdr KS11 등)는 세션 인증 이슈로 사용하지 않는다.
 """
@@ -40,27 +40,22 @@ def collect_market_data(fred_api_key: str = "") -> dict:
     today = _last_trading_date()
     start = today - datetime.timedelta(days=300)
 
-    kospi_hist  = _fetch_yf("^KS11", start, today)
-    kosdaq_hist = _fetch_yf("^KQ11", start, today)
+    kospi_hist = _fetch_yf("^KS11", start, today)
 
-    if kospi_hist.empty or kosdaq_hist.empty:
-        raise RuntimeError("KOSPI/KOSDAQ 데이터를 가져오지 못했다. 네트워크를 확인해주세요.")
+    if kospi_hist.empty:
+        raise RuntimeError("KOSPI 데이터를 가져오지 못했다. 네트워크를 확인해주세요.")
 
-    kospi_cl  = kospi_hist["Close"].squeeze()
-    kosdaq_cl = kosdaq_hist["Close"].squeeze()
+    kospi_cl = kospi_hist["Close"].squeeze()
 
     kospi_close  = round(float(kospi_cl.iloc[-1]), 2)
     kospi_prev   = round(float(kospi_cl.iloc[-2]), 2)
-    kosdaq_close = round(float(kosdaq_cl.iloc[-1]), 2)
 
     kospi_change_pt  = round(kospi_close - kospi_prev, 2)
     kospi_change_pct = round(kospi_change_pt / kospi_prev * 100, 2)
 
     # 52주 고점 대비 하락률
-    kospi_52w_high  = float(kospi_hist["High"].squeeze().tail(252).max())
-    kosdaq_52w_high = float(kosdaq_hist["High"].squeeze().tail(252).max())
-    kospi_drawdown_pct  = round((kospi_close  - kospi_52w_high)  / kospi_52w_high  * 100, 1)
-    kosdaq_drawdown_pct = round((kosdaq_close - kosdaq_52w_high) / kosdaq_52w_high * 100, 1)
+    kospi_52w_high = float(kospi_hist["High"].squeeze().tail(252).max())
+    kospi_drawdown_pct = round((kospi_close - kospi_52w_high) / kospi_52w_high * 100, 1)
 
     # 이격도 (20일, 60일)
     ma20 = float(kospi_cl.tail(20).mean())
@@ -93,15 +88,14 @@ def collect_market_data(fred_api_key: str = "") -> dict:
 
     # 미국 매크로
     us_gdp_yoy, us_jobs = _get_us_macro(fred_api_key)
+    us_10y_yield, us_10y_source = _get_us_10y_yield(fred_api_key)
 
     return {
         "date": today.strftime("%Y-%m-%d"),
         "kospi_close": kospi_close,
-        "kosdaq_close": kosdaq_close,
         "kospi_change_pt": kospi_change_pt,
         "kospi_change_pct": kospi_change_pct,
         "kospi_drawdown_pct": kospi_drawdown_pct,
-        "kosdaq_drawdown_pct": kosdaq_drawdown_pct,
         "disparity_20": disparity_20,
         "disparity_60": disparity_60,
         "below_ma20_ratio": below_ma20_ratio,
@@ -113,6 +107,8 @@ def collect_market_data(fred_api_key: str = "") -> dict:
         "dubai": dubai,
         "us_gdp_yoy": us_gdp_yoy,
         "us_jobs": us_jobs,
+        "us_10y_yield": us_10y_yield,
+        "us_10y_source": us_10y_source,
         "oil_20d_avg": oil_20d_avg,
         "oil_5d_change_pct": oil_5d_change_pct,
         "oil_data_source": "WTI=CL=F, Dubai=Brent proxy BZ=F",
@@ -272,6 +268,30 @@ def _get_us_gdp_yoy(fred_api_key: str) -> float:
         return round((float(gdp.iloc[-1]) - float(gdp.iloc[-5])) / float(gdp.iloc[-5]) * 100, 1)
     except Exception:
         return 2.5
+
+
+def _get_us_10y_yield(fred_api_key: str) -> tuple[float | None, str]:
+    if fred_api_key:
+        try:
+            from fredapi import Fred
+            series = Fred(api_key=fred_api_key).get_series("DGS10").dropna()
+            if len(series) > 0:
+                return round(float(series.iloc[-1]), 2), "FRED DGS10"
+        except Exception:
+            pass
+
+    try:
+        hist = yf.Ticker("^TNX").history(period="10d")
+        close = hist["Close"].dropna()
+        if len(close) > 0:
+            raw = float(close.iloc[-1])
+            # Yahoo의 ^TNX는 보통 10년물 금리의 10배 값이다.
+            value = raw / 10 if raw > 20 else raw
+            return round(value, 2), "Yahoo ^TNX"
+    except Exception:
+        pass
+
+    return None, "missing"
 
 
 def _get_us_jobs(fred_api_key: str) -> str:

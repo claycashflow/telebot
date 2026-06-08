@@ -1,11 +1,9 @@
 SAMPLE_PAYLOAD = {
     "date": "2026-03-23",
     "kospi_close": 2612.34,
-    "kosdaq_close": 845.22,
     "kospi_change_pt": -23.5,
     "kospi_change_pct": -0.89,
     "kospi_drawdown_pct": -19.2,
-    "kosdaq_drawdown_pct": -22.1,
     "disparity_20": 91.3,
     "disparity_60": 93.0,
     "below_ma20_ratio": 68.4,
@@ -19,4 +17,5 @@ SAMPLE_PAYLOAD = {
     "oil_5d_change_pct": 2.1,
     "us_gdp_yoy": 3.2,
     "us_jobs": "stable",
+    "us_10y_yield": 4.2,
 }
