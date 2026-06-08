@@ -3,12 +3,12 @@
 
 백엔드 구성:
 - yfinance         : KOSPI(^KS11), WTI(CL=F), 브렌트유(BZ=F, Dubai 대체 지표), 미국 10년물(^TNX)
-- FinanceDataReader: KOSPI 시총 상위 50종목 개별 시세 → below_ma20_ratio 계산
-- fredapi          : 미국 GDP YoY, 고용 동향, 미국 10년물 금리(DGS10, FRED_API_KEY 설정 시)
+                     * 미국 10년물 금리는 실시간성 확보를 위해 Yahoo Finance 시장가를 최우선으로 한다.
+- FinanceDataReader: KOSPI 시총 상위 50종목 개별 시세 -> below_ma20_ratio 계산
+- fredapi          : 미국 GDP YoY, 고용 동향 (미 국채 금리는 Yahoo Finance 실패 시 백업용)
 
 KRX 자체 API(pykrx, fdr KS11 등)는 세션 인증 이슈로 사용하지 않는다.
 """
-
 import datetime
 import random
 
@@ -271,27 +271,39 @@ def _get_us_gdp_yoy(fred_api_key: str) -> float:
 
 
 def _get_us_10y_yield(fred_api_key: str) -> tuple[float | None, str]:
-    """미국 10년물 금리를 수집한다. 실시간 시장가 반영을 위해 Yahoo Finance를 최우선으로 조회한다."""
+    """
+    미국 10년물 금리(Treasury Yield 10 Years)를 수집한다.
+    실시간 시장가 반영을 위해 Yahoo Finance(^TNX)를 최우선으로 하며, 실패 시 FRED(DGS10)를 백업으로 사용한다.
+    """
     try:
-        # Yahoo Finance (^TNX)는 지연이 적은 시장 가격을 제공함
-        # 주말이나 휴장일 공백을 방지하기 위해 5일치 데이터를 조회
+        # 1. Yahoo Finance 시장 데이터 우선 조회
+        # ^TNX는 시카고 옵션 거래소(CBOE)에서 산출하는 10년물 수익률 지수
         ticker = yf.Ticker("^TNX")
-        hist = ticker.history(period="5d")
-        close = hist["Close"].dropna()
-        if len(close) > 0:
-            raw = float(close.iloc[-1])
-            # ^TNX 값이 10배(예: 45.4)로 리턴되는 경우를 대비하여 10으로 나눔 (4.54)
+        raw = None
+        
+        # 실시간 세션 가격 확인
+        if hasattr(ticker, 'fast_info') and 'last_price' in ticker.fast_info:
+            raw = ticker.fast_info['last_price']
+        
+        # fast_info 실패 또는 휴장일인 경우 최근 5일 히스토리에서 마지막 유효값 추출
+        if raw is None or np.isnan(raw):
+            hist = ticker.history(period="5d")
+            if not hist.empty:
+                raw = float(hist["Close"].iloc[-1])
+
+        if raw is not None and not np.isnan(raw):
+            # Yahoo ^TNX는 금리의 10배수로 표기되는 경우가 많으므로 보정 (예: 45.4 -> 4.54)
             value = raw / 10 if raw > 20 else raw
-            return round(value, 2), "Yahoo ^TNX (Market)"
+            return round(value, 2), "Yahoo ^TNX (Real-time Market)"
     except Exception:
         pass
 
     if fred_api_key:
         try:
+            # 2. Yahoo Finance 실패 시 FRED 백업 (전일자 종가 기준이므로 4.47% 등 지연 발생 가능)
             from fredapi import Fred
             series = Fred(api_key=fred_api_key).get_series("DGS10").dropna()
             if len(series) > 0:
-                # FRED 데이터는 전일 종가 기준이므로 시장가보다 낮게(4.47% 등) 표시될 수 있음
                 return round(float(series.iloc[-1]), 2), "FRED DGS10 (Daily/Delayed)"
         except Exception:
             pass
