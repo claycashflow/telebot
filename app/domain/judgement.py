@@ -51,12 +51,13 @@ def evaluate_market(data: MarketInput) -> dict:
         score -= 2
         reasons.append("미국 GDP가 높아 금리 인하 기대 후퇴 우려가 있다.")
 
-    if data.us_10y_yield is not None and data.us_10y_yield >= 4.5:
-        score -= 1
-        reasons.append("미국 10년물 금리가 4.5% 이상으로 밸류에이션 부담이 있다.")
-    if data.us_10y_yield is not None and data.us_10y_yield >= 5.0:
-        score -= 1
-        reasons.append("미국 10년물 금리가 5% 이상으로 금리 부담이 강하다.")
+    if data.us_10y_yield is not None:
+        if data.us_10y_yield >= 4.5:
+            score -= 1
+            reasons.append("미국 10년물 금리가 4.5% 이상으로 밸류에이션 부담이 있다.")
+        if data.us_10y_yield >= 5.0:
+            score -= 1
+            reasons.append("미국 10년물 금리가 5% 이상으로 금리 부담이 강하다.")
 
     if score >= 6:
         status = BottomStatus.TRUE_BOTTOM_CONFIRMED

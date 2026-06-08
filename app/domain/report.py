@@ -1,4 +1,4 @@
-from app.domain.models import MarketInput
+from app.domain.models import MarketInput, BottomPattern
 
 _SEPARATOR = "-" * 20
 
@@ -51,7 +51,7 @@ def build_report(data: MarketInput, judgement: dict) -> str:
         f"\n"
         f"⑤ 기술적 신호\n"
         f"  - 50/60일 MA 지지: {ma_support}\n"
-        f"  - 바닥 패턴: {data.bottom_pattern.value}\n"
+        f"  - 바닥 패턴: {_format_bottom_pattern(data.bottom_pattern)}\n"
         f"\n"
         f"{_SEPARATOR}\n"
         f"🔍 저점 판독 결과\n"
@@ -253,4 +253,18 @@ def _format_ma_support(data: MarketInput) -> str:
         supported.append("50일")
     if data.ma60_support:
         supported.append("60일")
-    return ", ".join(supported) + " 지지" if supported else "없음"
+
+    if len(supported) == 2:
+        return "50일 및 60일 이평선 모두 지지"
+    if supported:
+        return f"{supported[0]} 이평선 지지 확인"
+    return "지지선 없음 (하회 중)"
+
+def _format_bottom_pattern(pattern: BottomPattern) -> str:
+    mapping = {
+        BottomPattern.V_ATTEMPT: "급락 후 반등 시도 (V자)",
+        BottomPattern.W_FORMING: "W자 바닥 형성 중",
+        BottomPattern.W_SECOND_BOTTOM: "두 번째 바닥 테스트 (W자)",
+        BottomPattern.PANIC_CAPITULATION: "실체 악재와 투매 동반 (패닉)",
+    }
+    return mapping.get(pattern, pattern.value)

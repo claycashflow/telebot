@@ -271,25 +271,30 @@ def _get_us_gdp_yoy(fred_api_key: str) -> float:
 
 
 def _get_us_10y_yield(fred_api_key: str) -> tuple[float | None, str]:
+    """미국 10년물 금리를 수집한다. 실시간 시장가 반영을 위해 Yahoo Finance를 최우선으로 조회한다."""
+    try:
+        # Yahoo Finance (^TNX)는 지연이 적은 시장 가격을 제공함
+        # 주말이나 휴장일 공백을 방지하기 위해 5일치 데이터를 조회
+        ticker = yf.Ticker("^TNX")
+        hist = ticker.history(period="5d")
+        close = hist["Close"].dropna()
+        if len(close) > 0:
+            raw = float(close.iloc[-1])
+            # ^TNX 값이 10배(예: 45.4)로 리턴되는 경우를 대비하여 10으로 나눔 (4.54)
+            value = raw / 10 if raw > 20 else raw
+            return round(value, 2), "Yahoo ^TNX (Market)"
+    except Exception:
+        pass
+
     if fred_api_key:
         try:
             from fredapi import Fred
             series = Fred(api_key=fred_api_key).get_series("DGS10").dropna()
             if len(series) > 0:
-                return round(float(series.iloc[-1]), 2), "FRED DGS10"
+                # FRED 데이터는 전일 종가 기준이므로 시장가보다 낮게(4.47% 등) 표시될 수 있음
+                return round(float(series.iloc[-1]), 2), "FRED DGS10 (Daily/Delayed)"
         except Exception:
             pass
-
-    try:
-        hist = yf.Ticker("^TNX").history(period="10d")
-        close = hist["Close"].dropna()
-        if len(close) > 0:
-            raw = float(close.iloc[-1])
-            # Yahoo의 ^TNX는 보통 10년물 금리의 10배 값이다.
-            value = raw / 10 if raw > 20 else raw
-            return round(value, 2), "Yahoo ^TNX"
-    except Exception:
-        pass
 
     return None, "missing"
 
