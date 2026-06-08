@@ -19,6 +19,7 @@ def build_report(data: MarketInput, judgement: dict) -> str:
     gdp_label    = _gdp_label(data.us_gdp_yoy)
     us_10y_label = _us_10y_label(data.us_10y_yield)
     oil_trend    = _format_oil_trend(data)
+    us_10y_note  = _format_us_10y_source_note(data)
     source_notes = _format_source_notes(data)
     narrative    = _build_narrative(data, judgement)
 
@@ -65,6 +66,7 @@ def build_report(data: MarketInput, judgement: dict) -> str:
         f"{oil_trend}"
         f"  - 미국 GDP YoY: {data.us_gdp_yoy}% ({gdp_label})  [기준: 4% 이상 → 금리 인하 기대 후퇴]\n"
         f"  - 미국 10년물 금리: {_format_optional_pct(data.us_10y_yield)} ({us_10y_label})  [기준: 4.5% 이상 → 부담 / 5.0% 이상 → 강한 부담]\n"
+        f"{us_10y_note}"
         f"  - 고용 동향: {data.us_jobs}\n"
         f"{source_notes}"
         f"\n"
@@ -168,8 +170,6 @@ def _format_oil_trend(data: MarketInput) -> str:
 
 def _format_source_notes(data: MarketInput) -> str:
     notes = []
-    if data.us_10y_source != "manual":
-        notes.append(f"미국 10년물 금리: {data.us_10y_source}")
     if data.oil_data_source != "manual":
         notes.append(f"유가 데이터: {data.oil_data_source}")
     if data.vkospi_source != "manual":
@@ -177,6 +177,12 @@ def _format_source_notes(data: MarketInput) -> str:
     if not notes:
         return ""
     return "".join(f"  - 데이터 메모: {note}\n" for note in notes)
+
+
+def _format_us_10y_source_note(data: MarketInput) -> str:
+    if data.us_10y_source == "manual":
+        return ""
+    return f"    · 데이터 출처: {data.us_10y_source}\n"
 
 
 def _mdd_label(drawdown: float) -> str:

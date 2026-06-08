@@ -10,11 +10,14 @@
 KRX 자체 API(pykrx, fdr KS11 등)는 세션 인증 이슈로 사용하지 않는다.
 """
 import datetime
+import logging
 import random
 
 import numpy as np
 import pandas as pd
 import yfinance as yf
+
+logger = logging.getLogger(__name__)
 
 # KOSPI 시총 상위 50 종목 코드 (FinanceDataReader 형식 — 6자리)
 _KOSPI_TOP50 = [
@@ -275,28 +278,46 @@ def _get_us_10y_yield(fred_api_key: str) -> tuple[float | None, str]:
     미국 10년물 금리(Treasury Yield 10 Years)를 수집한다.
     실시간 시장가 반영을 위해 Yahoo Finance(^TNX)를 최우선으로 하며, 실패 시 FRED(DGS10)를 백업으로 사용한다.
     """
+    yahoo_failures: list[str] = []
+
     try:
         # 1. Yahoo Finance 시장 데이터 우선 조회
         # ^TNX는 시카고 옵션 거래소(CBOE)에서 산출하는 10년물 수익률 지수
         ticker = yf.Ticker("^TNX")
         raw = None
-        
-        # 실시간 세션 가격 확인
-        if hasattr(ticker, 'fast_info') and 'last_price' in ticker.fast_info:
-            raw = ticker.fast_info['last_price']
-        
-        # fast_info 실패 또는 휴장일인 경우 최근 5일 히스토리에서 마지막 유효값 추출
-        if raw is None or np.isnan(raw):
-            hist = ticker.history(period="5d")
-            if not hist.empty:
-                raw = float(hist["Close"].iloc[-1])
+
+        try:
+            fast_info = ticker.fast_info
+            if hasattr(fast_info, "get"):
+                raw = fast_info.get("last_price")
+            elif "last_price" in fast_info:
+                raw = fast_info["last_price"]
+        except Exception as exc:
+            yahoo_failures.append(f"fast_info_error={type(exc).__name__}")
 
         if raw is not None and not np.isnan(raw):
-            # Yahoo ^TNX는 금리의 10배수로 표기되는 경우가 많으므로 보정 (예: 45.4 -> 4.54)
             value = raw / 10 if raw > 20 else raw
-            return round(value, 2), "Yahoo ^TNX (Real-time Market)"
-    except Exception:
-        pass
+            return round(value, 2), "Yahoo ^TNX (Real-time Market; fast_info)"
+
+        if raw is None:
+            yahoo_failures.append("fast_info_missing")
+        elif np.isnan(raw):
+            yahoo_failures.append("fast_info_nan")
+
+        try:
+            hist = ticker.history(period="5d")
+            if hist.empty:
+                yahoo_failures.append("history_empty")
+            else:
+                raw = float(hist["Close"].iloc[-1])
+                if not np.isnan(raw):
+                    value = raw / 10 if raw > 20 else raw
+                    return round(value, 2), "Yahoo ^TNX (Real-time Market; history_fallback)"
+                yahoo_failures.append("history_nan")
+        except Exception as exc:
+            yahoo_failures.append(f"history_error={type(exc).__name__}")
+    except Exception as exc:
+        yahoo_failures.append(f"ticker_error={type(exc).__name__}")
 
     if fred_api_key:
         try:
@@ -304,10 +325,14 @@ def _get_us_10y_yield(fred_api_key: str) -> tuple[float | None, str]:
             from fredapi import Fred
             series = Fred(api_key=fred_api_key).get_series("DGS10").dropna()
             if len(series) > 0:
-                return round(float(series.iloc[-1]), 2), "FRED DGS10 (Daily/Delayed)"
-        except Exception:
-            pass
+                reason = ", ".join(yahoo_failures) if yahoo_failures else "Yahoo unavailable"
+                logger.warning("Using FRED DGS10 fallback for US 10Y yield: %s", reason)
+                return round(float(series.iloc[-1]), 2), f"FRED DGS10 (Daily/Delayed; Yahoo fallback: {reason})"
+        except Exception as exc:
+            yahoo_failures.append(f"fred_error={type(exc).__name__}")
 
+    if yahoo_failures:
+        logger.warning("US 10Y yield unavailable from Yahoo/FRED: %s", ", ".join(yahoo_failures))
     return None, "missing"
 
 
