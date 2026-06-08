@@ -19,9 +19,13 @@ def test_run_market_check_generates_report():
         "bottom_pattern": "W_second_bottom",
         "wti": 84.2,
         "dubai": 81.7,
+        "oil_20d_avg": 86.4,
+        "oil_5d_change_pct": 2.1,
         "us_gdp_yoy": 3.2,
         "us_jobs": "stable",
     }
     _, judgement, report = run_market_check(payload)
     assert judgement["status"]
     assert "저점 판독 결과" in report
+    assert "판정 기준 하락률" in report
+    assert "유가 20일 평균" in report

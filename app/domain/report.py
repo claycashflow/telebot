@@ -9,14 +9,17 @@ def build_report(data: MarketInput, judgement: dict) -> str:
     change_arrow = _format_change_arrow(data.kospi_change_pt)
     peak = data.kospi_close / (1 + data.kospi_drawdown_pct / 100)
     ma20 = data.kospi_close * 100 / data.disparity_20
+    worst_drawdown = min(data.kospi_drawdown_pct, data.kosdaq_drawdown_pct)
 
-    mdd_label    = _mdd_label(data.kospi_drawdown_pct)
+    mdd_label    = _mdd_label(worst_drawdown)
     disp_label   = _disparity_label(data.disparity_20)
     vkospi_label = _vkospi_label(data.vkospi)
     below_label  = _below_ma20_label(data.below_ma20_ratio)
     wti_label    = _oil_label(data.wti)
     dubai_label  = _oil_label(data.dubai)
     gdp_label    = _gdp_label(data.us_gdp_yoy)
+    oil_trend    = _format_oil_trend(data)
+    source_notes = _format_source_notes(data)
     narrative    = _build_narrative(data, judgement)
 
     return (
@@ -29,7 +32,9 @@ def build_report(data: MarketInput, judgement: dict) -> str:
         f"① 52주 고점 대비 하락률 (MDD)\n"
         f"  - 52주 최고점: {peak:,.2f}\n"
         f"  - 현재: {data.kospi_close:,.2f}\n"
-        f"  - 하락률: {data.kospi_drawdown_pct:.1f}%  [기준: -18%~-23% → 저점 후보 / -23% 초과 → 침체 점검]\n"
+        f"  - KOSPI 하락률: {data.kospi_drawdown_pct:.1f}%  [기준: -18%~-23% → 저점 후보 / -23% 초과 → 침체 점검]\n"
+        f"  - KOSDAQ 하락률: {data.kosdaq_drawdown_pct:.1f}%\n"
+        f"  - 판정 기준 하락률: {worst_drawdown:.1f}%  [KOSPI/KOSDAQ 중 더 깊은 하락률]\n"
         f"  - 평가: {mdd_label}\n"
         f"\n"
         f"② 20일 이동평균 이격도\n"
@@ -46,6 +51,10 @@ def build_report(data: MarketInput, judgement: dict) -> str:
         f"  - {data.vkospi:.1f}  [기준: 40 이상 → 공포 극단 구간]\n"
         f"  - 평가: {vkospi_label}\n"
         f"\n"
+        f"⑤ 기술적 신호\n"
+        f"  - 50/60일 MA 지지: {ma_support}\n"
+        f"  - 바닥 패턴: {data.bottom_pattern.value}\n"
+        f"\n"
         f"{_SEPARATOR}\n"
         f"🔍 저점 판독 결과\n"
         f"  - 판정: {judgement['status']}\n"
@@ -55,8 +64,10 @@ def build_report(data: MarketInput, judgement: dict) -> str:
         f"\n"
         f"🌐 매크로 상황\n"
         f"  - WTI: {data.wti} ({wti_label})  /  Dubai: {data.dubai} ({dubai_label})  [기준: 80 초과 → 감점 / 100 이상 → 추가 감점]\n"
+        f"{oil_trend}"
         f"  - 미국 GDP YoY: {data.us_gdp_yoy}% ({gdp_label})  [기준: 4% 이상 → 금리 인하 기대 후퇴]\n"
         f"  - 고용 동향: {data.us_jobs}\n"
+        f"{source_notes}"
         f"\n"
         f"{_SEPARATOR}\n"
         f"📝 종합 해석\n"
@@ -79,6 +90,7 @@ def _build_narrative(data: MarketInput, judgement: dict) -> str:
 
     # MDD 해석
     d = data.kospi_drawdown_pct
+    worst_drawdown = min(data.kospi_drawdown_pct, data.kosdaq_drawdown_pct)
     if d > -10:
         lines.append(f"KOSPI 하락률이 {d:.1f}%로 아직 일반 조정 구간이다. 역사적 저점 후보 구간(-18%~-23%)까지 약 {abs(-18 - d):.1f}%p 이상 추가 하락 여지가 있다.")
     elif d > -18:
@@ -87,6 +99,9 @@ def _build_narrative(data: MarketInput, judgement: dict) -> str:
         lines.append(f"KOSPI 하락률이 {d:.1f}%로 역사적 저점 후보 구간(-18%~-23%)에 진입했다. 급등 이후 1년치 하락분을 반영하는 구간으로, 기술적 바닥 형성 가능성이 높아진다.")
     else:
         lines.append(f"KOSPI 하락률이 {d:.1f}%로 일반적인 저점 구간(-23%)을 초과했다. 단순 조정이 아닌 구조적 하락 가능성을 함께 점검해야 한다.")
+
+    if worst_drawdown != d:
+        lines.append(f"규칙 엔진은 KOSPI와 KOSDAQ 중 더 깊은 하락률을 사용한다. 현재 판정 기준 하락률은 {worst_drawdown:.1f}%다.")
 
     # 이격도 해석
     disp = data.disparity_20
@@ -118,6 +133,10 @@ def _build_narrative(data: MarketInput, judgement: dict) -> str:
         lines.append(f"유가(WTI {data.wti} / Dubai {data.dubai})가 100달러를 돌파했다. 인플레이션 재자극으로 금리 인하 스케줄이 무너질 수 있어 추세적 하락 리스크를 경계해야 한다.")
     elif data.wti > 80 or data.dubai > 80:
         lines.append(f"유가(WTI {data.wti} / Dubai {data.dubai})가 80달러를 초과했다. 100달러 돌파 여부가 매크로 리스크의 분수령이다.")
+    if data.oil_20d_avg is not None and data.oil_20d_avg >= 90:
+        lines.append(f"20일 평균 유가가 {data.oil_20d_avg:.1f}달러로 높은 수준에 머물러 있다. 한국 시장에는 원가·물가·금리 기대 측면의 지속 부담으로 해석한다.")
+    if data.oil_5d_change_pct is not None and data.oil_5d_change_pct >= 8:
+        lines.append(f"최근 5거래일 유가 변화율이 {data.oil_5d_change_pct:+.1f}%로 급등 구간이다. 공급차질 프리미엄이 붙는 경우 저점 확인을 보수적으로 봐야 한다.")
 
     # 계절성 해석
     try:
@@ -130,6 +149,28 @@ def _build_narrative(data: MarketInput, judgement: dict) -> str:
         pass
 
     return "\n".join(f"  {line}" for line in lines) if lines else "  현재 지표만으로는 추가 해석이 어렵다."
+
+
+def _format_oil_trend(data: MarketInput) -> str:
+    lines = []
+    if data.oil_20d_avg is not None:
+        label = "고유가 고착 부담" if data.oil_20d_avg >= 90 else "고착 감점 없음"
+        lines.append(f"  - 유가 20일 평균: {data.oil_20d_avg:.1f} ({label})")
+    if data.oil_5d_change_pct is not None:
+        label = "단기 급등" if data.oil_5d_change_pct >= 8 else "급등 아님"
+        lines.append(f"  - 유가 5거래일 변화율: {data.oil_5d_change_pct:+.1f}% ({label})")
+    return "".join(f"{line}\n" for line in lines)
+
+
+def _format_source_notes(data: MarketInput) -> str:
+    notes = []
+    if data.oil_data_source != "manual":
+        notes.append(f"유가 데이터: {data.oil_data_source}")
+    if data.vkospi_source != "manual":
+        notes.append(f"변동성 데이터: {data.vkospi_source}")
+    if not notes:
+        return ""
+    return "".join(f"  - 데이터 메모: {note}\n" for note in notes)
 
 
 def _mdd_label(drawdown: float) -> str:

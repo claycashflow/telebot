@@ -33,3 +33,36 @@ def test_evaluate_market_returns_valid_status():
     assert result["status"] in {"추가 조정 필요", "저점 근접", "진 바닥 확인"}
     assert isinstance(result["score"], int)
     assert result["reasons"]
+
+
+def test_sample_score_reflects_high_oil_penalty():
+    result = evaluate_market(build_input())
+    assert result["score"] == 8
+    assert result["status"] == "진 바닥 확인"
+
+
+def test_sustained_high_oil_adds_penalty():
+    result = evaluate_market(build_input(oil_20d_avg=92.0))
+    assert result["score"] == 7
+    assert "20일 평균 유가가 90달러 이상으로 고유가 고착 부담이 있다." in result["reasons"]
+
+
+def test_short_term_oil_spike_adds_penalty():
+    result = evaluate_market(build_input(oil_5d_change_pct=8.0))
+    assert result["score"] == 7
+    assert "최근 5거래일 유가 급등으로 물가·금리 부담이 재부각될 수 있다." in result["reasons"]
+
+
+def test_worst_drawdown_uses_kosdaq_when_deeper():
+    result = evaluate_market(
+        build_input(
+            kospi_drawdown_pct=-16.2,
+            kosdaq_drawdown_pct=-24.0,
+            disparity_20=94.3,
+            disparity_60=96.0,
+            vkospi=62.5,
+            wti=94.5,
+            dubai=97.6,
+        )
+    )
+    assert "하락률이 깊어 침체 가능성도 함께 점검해야 한다." in result["reasons"]

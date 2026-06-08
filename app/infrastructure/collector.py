@@ -2,7 +2,7 @@
 장 마감 데이터 자동 수집 모듈.
 
 백엔드 구성:
-- yfinance         : KOSPI(^KS11), KOSDAQ(^KQ11), WTI(CL=F), 브렌트유(BZ=F)
+- yfinance         : KOSPI(^KS11), KOSDAQ(^KQ11), WTI(CL=F), 브렌트유(BZ=F, Dubai 대체 지표)
 - FinanceDataReader: KOSPI 시총 상위 50종목 개별 시세 → below_ma20_ratio 계산
 - fredapi          : 미국 GDP YoY, 고용 동향 (FRED_API_KEY 설정 시)
 
@@ -82,9 +82,14 @@ def collect_market_data(fred_api_key: str = "") -> dict:
     # 바닥 패턴
     bottom_pattern = _detect_bottom_pattern(kospi_cl.values)
 
-    # 유가
-    wti   = _get_yf_price("CL=F")
-    dubai = _get_yf_price("BZ=F")
+    # 유가. yfinance에는 Dubai 원유 지표가 없어 BZ=F를 대체 지표로 둔다.
+    wti_hist = _get_yf_close_history("CL=F")
+    dubai_hist = _get_yf_close_history("BZ=F")
+    wti = _last_price(wti_hist, "WTI")
+    dubai = _last_price(dubai_hist, "Dubai 대체 지표")
+    oil_benchmark = _oil_benchmark_series(wti_hist, dubai_hist)
+    oil_20d_avg = _calc_oil_20d_avg(oil_benchmark)
+    oil_5d_change_pct = _calc_oil_5d_change_pct(oil_benchmark)
 
     # 미국 매크로
     us_gdp_yoy, us_jobs = _get_us_macro(fred_api_key)
@@ -108,6 +113,10 @@ def collect_market_data(fred_api_key: str = "") -> dict:
         "dubai": dubai,
         "us_gdp_yoy": us_gdp_yoy,
         "us_jobs": us_jobs,
+        "oil_20d_avg": oil_20d_avg,
+        "oil_5d_change_pct": oil_5d_change_pct,
+        "oil_data_source": "WTI=CL=F, Dubai=Brent proxy BZ=F",
+        "vkospi_source": "20d historical volatility proxy",
     }
 
 
@@ -138,12 +147,46 @@ def _fetch_yf(ticker: str, start: datetime.date, end: datetime.date) -> pd.DataF
         return pd.DataFrame()
 
 
-def _get_yf_price(ticker: str) -> float:
+def _get_yf_close_history(ticker: str, period: str = "30d") -> pd.Series:
     try:
-        hist = yf.Ticker(ticker).history(period="5d")
-        return round(float(hist["Close"].iloc[-1]), 2)
+        hist = yf.Ticker(ticker).history(period=period)
+        if hist.empty:
+            return pd.Series(dtype=float)
+        return hist["Close"].dropna().astype(float)
     except Exception:
-        return 0.0
+        return pd.Series(dtype=float)
+
+
+def _last_price(series: pd.Series, label: str) -> float:
+    if series.empty:
+        raise RuntimeError(f"{label} 데이터를 가져오지 못했다.")
+    return round(float(series.iloc[-1]), 2)
+
+
+def _oil_benchmark_series(wti: pd.Series, dubai: pd.Series) -> pd.Series:
+    series_list = []
+    if not wti.empty:
+        series_list.append(wti.rename("wti"))
+    if not dubai.empty:
+        series_list.append(dubai.rename("dubai"))
+    if not series_list:
+        return pd.Series(dtype=float)
+    return pd.concat(series_list, axis=1).max(axis=1).dropna()
+
+
+def _calc_oil_20d_avg(oil: pd.Series) -> float | None:
+    if len(oil) < 20:
+        return None
+    return round(float(oil.tail(20).mean()), 1)
+
+
+def _calc_oil_5d_change_pct(oil: pd.Series) -> float | None:
+    if len(oil) < 6:
+        return None
+    prev = float(oil.iloc[-6])
+    if prev <= 0:
+        return None
+    return round((float(oil.iloc[-1]) - prev) / prev * 100, 1)
 
 
 def _calc_vkospi(kospi_cl: pd.Series) -> float:

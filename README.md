@@ -75,19 +75,23 @@ D:\miniconda3\envs\ai\python.exe main.py
   "date": "2026-03-23",
   "kospi_close": 2612.34,
   "kosdaq_close": 845.22,
+  "kospi_change_pt": -23.5,
+  "kospi_change_pct": -0.89,
   "kospi_drawdown_pct": -19.2,
   "kosdaq_drawdown_pct": -22.1,
   "disparity_20": 91.3,
   "disparity_60": 93.0,
+  "below_ma20_ratio": 68.4,
   "vkospi": 47.0,
   "ma50_support": true,
   "ma60_support": false,
   "bottom_pattern": "W_second_bottom",
   "wti": 84.2,
   "dubai": 81.7,
+  "oil_20d_avg": 86.4,
+  "oil_5d_change_pct": 2.1,
   "us_gdp_yoy": 3.2,
-  "us_jobs": "stable",
-  "semiconductor_earnings_view": "positive"
+  "us_jobs": "stable"
 }
 ```
 

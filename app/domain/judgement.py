@@ -29,7 +29,7 @@ def evaluate_market(data: MarketInput) -> dict:
 
     if data.ma50_support or data.ma60_support:
         score += 1
-        reasons.append("이동평균선 지지 신호가 있다.")
+        reasons.append("50/60일 이동평균선 지지 신호가 있다.")
 
     if data.bottom_pattern in {BottomPattern.W_SECOND_BOTTOM, BottomPattern.PANIC_CAPITULATION}:
         score += 2
@@ -41,6 +41,12 @@ def evaluate_market(data: MarketInput) -> dict:
     if data.wti >= 100 or data.dubai >= 100:
         score -= 1
         reasons.append("유가가 높은 수준으로 추가 감점 구간이다.")
+    if data.oil_20d_avg is not None and data.oil_20d_avg >= 90:
+        score -= 1
+        reasons.append("20일 평균 유가가 90달러 이상으로 고유가 고착 부담이 있다.")
+    if data.oil_5d_change_pct is not None and data.oil_5d_change_pct >= 8:
+        score -= 1
+        reasons.append("최근 5거래일 유가 급등으로 물가·금리 부담이 재부각될 수 있다.")
 
     if data.us_gdp_yoy >= 4.0:
         score -= 2

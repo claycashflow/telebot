@@ -23,3 +23,7 @@ class MarketInput:
     dubai: float
     us_gdp_yoy: float
     us_jobs: str
+    oil_20d_avg: float | None = None
+    oil_5d_change_pct: float | None = None
+    oil_data_source: str = "manual"
+    vkospi_source: str = "manual"

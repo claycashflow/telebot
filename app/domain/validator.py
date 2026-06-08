@@ -40,6 +40,12 @@ def validate_market_input(payload: dict) -> MarketInput:
     if not (0 <= below <= 100):
         raise ValidationError("below_ma20_ratio 값은 0~100 사이여야 한다.")
 
+    oil_20d_avg = _optional_float(payload, "oil_20d_avg")
+    if oil_20d_avg is not None and oil_20d_avg <= 0:
+        raise ValidationError("oil_20d_avg 값은 양수여야 한다.")
+
+    oil_5d_change_pct = _optional_float(payload, "oil_5d_change_pct")
+
     try:
         bottom_pattern = BottomPattern(payload["bottom_pattern"])
     except ValueError as exc:
@@ -65,4 +71,15 @@ def validate_market_input(payload: dict) -> MarketInput:
         dubai=float(payload["dubai"]),
         us_gdp_yoy=float(payload["us_gdp_yoy"]),
         us_jobs=str(payload["us_jobs"]),
+        oil_20d_avg=oil_20d_avg,
+        oil_5d_change_pct=oil_5d_change_pct,
+        oil_data_source=str(payload.get("oil_data_source", "manual")),
+        vkospi_source=str(payload.get("vkospi_source", "manual")),
     )
+
+
+def _optional_float(payload: dict, key: str) -> float | None:
+    value = payload.get(key)
+    if value in (None, ""):
+        return None
+    return float(value)
