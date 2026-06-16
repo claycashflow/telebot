@@ -8,3 +8,6 @@ __pycache__/
 htmlcov/
 dist/
 build/
+*.session
+*.session-journal
+forwarder_state.json
